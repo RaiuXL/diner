@@ -1,11 +1,14 @@
 <?php
-//328/diner
+
+// 328/diner (Kinda like my notes)
 ini_set('display_errors',1);
 error_reporting(E_ALL);
 
 require_once ('vendor/autoload.php');
-require_once ('model/data-layer.php');
-require_once ('model/validate.php');
+
+//static methods do not access instant data
+//var_dump(DataLayer::getMeals());
+
 
 $F3 = Base::instance();
 
@@ -15,67 +18,63 @@ $F3->route('GET /', function(){
     echo $view->render('view/home.html');
 });
 
-// Breakfast Menu
+// Summary Route
+$F3->route('GET|POST /summary', function($F3){
+    $view=new Template();
+    echo $view->render('view/summary.html');
+});
+
+// Meal Menu - They don't do anything really
 $F3->route('GET /menus/breakfast', function(){
     $view=new Template();
     echo $view->render('view/breakfast-menu.html');
 });
-
-// Lunch Menu
 $F3->route('GET /menus/lunch', function(){
     $view=new Template();
     echo $view->render('view/lunch-menu.html');
 });
-
-// Dinner Menu
 $F3->route('GET /menus/dinner', function(){
     $view=new Template();
     echo $view->render('view/dinner-menu.html');
 });
 
-// Summary Route
-$F3->route('GET|POST /summary', function($F3){
-    var_dump($F3->get('SESSION'));
-    $view=new Template();
-    echo $view->render('view/summary.html');
-});
-
 // Order Form Part One
 $F3->route('GET|POST /order1', function($F3) {
+    // Placeholder
     $food = "";
     $meal = "";
+
     // If the form has been posted
     if ($_SERVER['REQUEST_METHOD'] == "POST") {
-        // Get the data from the post array
-        //var_dump($_POST);
-        if (validFood($_POST['food'])) {
+       // Check is the value for 'food' is valid, if not then set a message in errors[]
+        if (validate::validFood($_POST['food'])) {
             $food = $_POST['food'];
         }
         else {
             $F3->set('errors["food"]', 'Please enter a food');
         }
 
-        if (isset($_POST['meal']) and validMeal($_POST['meal'])) {
+        // Check if the value for 'meal' is valid, if not then set a message in errors[]
+        if (isset($_POST['meal']) and validate::validMeal($_POST['meal'])) {
             $meal = $_POST['meal'];
         }
         else {
             $F3->set('errors["meal"]', 'Please select a meal');
         }
 
-        // Add the data to the session array
-        $F3->set('SESSION.food', $food);
-        $F3->set('SESSION.meal', $meal);
+        // Add the data to the session array after it's validated
+        $order = new Order($food,$meal);
+        $F3->set('SESSION.order', $order);
 
-        // If there are no errors,
-        // Send the user to the next form
+
+        // If there are no elements in errors[], proceed to next page
         if(empty($F3->get('errors'))) {
             $F3->reroute('order2');
         }
     }
 
-    // Get the data from the model
-    // and add it to the F3 hive
-    $meals = getMeals();
+    // Getting data for Radio Buttons
+    $meals = DataLayer::getMeals();
     $F3->set('meals', $meals);
 
     // Render a view page
@@ -83,37 +82,35 @@ $F3->route('GET|POST /order1', function($F3) {
     echo $view->render('view/order1.html');
 });
 
-// Order Form Part II
+// Order Form part two
 $F3->route('GET|POST /order2', function($F3) {
-
-    var_dump ( $F3->get('SESSION') );
 
     // If the form has been posted
     if ($_SERVER['REQUEST_METHOD'] == "POST") {
 
-        //var_dump($_POST);
-        // Get the data from the post array
-        if (isset($_POST['conds']))
+        // Not checking validation since it's check boxes
+        if (isset($_POST['conds'])) {
             $condiments = implode(", ", $_POST['conds']);
-        else
+        }
+        else{
             $condiments = "None selected";
+        }
 
-        // If the data valid
+        // If the data valid and everything checks out
         if (true) {
             // Add the data to the session array
-            $F3->set('SESSION.condiments', $condiments);
+            $F3->get('SESSION.order')->setCondiments($condiments);
 
             // Send the user to the next form
             $F3->reroute('summary');
         }
         else {
-            // Temporary
             echo "<p>Validation errors</p>";
         }
     }
 
-    // Get the data from the model
-    $condiments = getCondiments();
+    // Get the data from the model for Check Box Data
+    $condiments = DataLayer::getCondiments();
     $F3->set('condiments', $condiments);
 
     // Render a view page
